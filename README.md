@@ -40,6 +40,7 @@
 | 需要 | 用途 |
 |---|---|
 | **Node.js 18+** | 跑 `serve.mjs`，必需；**仓库已带构建产物，装完 Node 即可直接运行** |
+| **.NET Framework 4.x** | 只有用托盘程序才需要。Win10 / Win11 系统自带，不用装 |
 | **ComfyUI** | 可选，只在要用序列帧生成器时需要 |
 | **bun** | 可选，只在改了前端源码、需要重新构建时用（仓库**已包含构建产物** `web/dist`，直接用 Node 就能跑） |
 
@@ -50,11 +51,20 @@ git clone https://github.com/xiaojiangxj33/infinite-canvas.git
 cd infinite-canvas
 ```
 
-Windows 下直接双击 **`启动无限画布.bat`**：缺少构建产物时会先自动构建，再起服务并打开浏览器。
-也可以手动：
+**推荐：双击 `无限画布托盘.exe`。** 它把服务收进右下角通知区域：
+
+- **没有控制台窗口，不会被误关**（原来那个黑窗口一点叉服务就没了）
+- **每 4 秒自检一次** `http://127.0.0.1:3000/status`，连续失败或进程退出都会**自动重启**
+- 托盘图标右键：打开无限画布 / 打开序列帧生成器 / 重启服务 / 查看日志 / 打开项目目录 / **开机自动启动** / 退出
+- 双击托盘图标即可打开页面；首次运行会自动打开浏览器
+
+也可以双击 **`启动无限画布.bat`**：缺少构建产物时会先自动构建，但会占用一个控制台窗口（关掉窗口即停止服务，且不会自动重启）。
+
+想自己重新编译托盘程序（改过源码后）：双击 `tray\build.bat`，用的是 Windows 自带的 csc，不需要装编译器。
+
+手动启动服务：
 
 ```bash
-cd web && bun install && bun run build && cd ..
 node serve.mjs
 ```
 
@@ -68,7 +78,7 @@ node serve.mjs
 
 画布里的「序列帧生成器」页面依赖一套 ComfyUI 环境，**相关代码不在本仓库**，来自这两个仓库：
 
-- **[h3-sprite-generator](https://github.com/xiaojiangxj33/h3-sprite-generator)** —— 序列帧生成器本体。单文件前端，约 300 KB、零依赖、零构建步骤。
+- **[h3-sprite-generator](https://github.com/xiaojiangxj33/h3-sprite-generator)** —— 序列帧生成器本体。单文件前端，约 270 KB、零依赖、零构建步骤。
 - **[ComfyUI-H3-ImageKey](https://github.com/xiaojiangxj33/ComfyUI-H3-ImageKey)** —— 配套的 ComfyUI 抠图节点，放进 `custom_nodes/` 即可用。
 
 装好之后，把这个网页目录告诉本服务（指向该自定义节点的 `web` 目录），三种方式任选一种：
