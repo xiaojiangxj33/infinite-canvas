@@ -294,6 +294,9 @@ static class TrayProgram
         // 提前创建窗口句柄：否则在窗口第一次显示之前调用 BeginInvoke 更新状态会抛异常
         // （启动那一次状态更新就丢了）。
         try { IntPtr h = f.Handle; } catch { }
+        // 标题栏与窗口边框切成深色：不然深色界面外围会有一圈浅色的"大白框"
+        f.HandleCreated += delegate { Theme.UseDarkTitleBar(f.Handle); };
+        Theme.UseDarkTitleBar(f.Handle);
 
         // 把已经写进文件的日志补进窗口，避免打开是空的
         try

@@ -1,4 +1,4 @@
-﻿// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 //  Launch Keynote（发布会主题）· 桌面版风格层
 //
 //  纯黑舞台 + 唯一电蓝。这里把 Web 版的 token 映射到 WinForms：
@@ -38,7 +38,29 @@ static class Theme
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SystemParametersInfo(uint uiAction, uint uiParam, out int pvParam, uint fWinIni);
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
     private const uint SPI_GETCLIENTAREAANIMATION = 0x1042;
+
+    /// <summary>
+    /// 把窗口标题栏与边框切成深色。
+    /// 不做这一步，深色界面顶上会顶着一条系统浅色标题栏、四周还有一圈浅色边框，
+    /// 看上去就像"外围有个大白框"。
+    /// </summary>
+    public static void UseDarkTitleBar(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        try
+        {
+            int on = 1;
+            // Win10 20H1 及以后用属性 20；更早的 1809~1909 用 19。两个都试，谁成功算谁。
+            if (DwmSetWindowAttribute(hwnd, 20, ref on, sizeof(int)) != 0)
+                DwmSetWindowAttribute(hwnd, 19, ref on, sizeof(int));
+        }
+        catch { }
+    }
 
     /// <summary>
     /// Windows 的「在 Windows 中显示动画」开关。关掉它就等同于 prefers-reduced-motion：
