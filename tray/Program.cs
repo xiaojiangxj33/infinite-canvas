@@ -251,6 +251,10 @@ static class TrayProgram
         _logBox.ForeColor = Theme.Ink;
         _logBox.Font = Theme.Mono(9.5f, FontStyle.Regular);
         card.Controls.Add(_logBox);
+        // 滚动条切深色：系统默认给的是浅色轨道，压在深色卡片上会成一条白条
+        _logBox.HandleCreated += delegate { Theme.UseDarkScrollbars(_logBox); };
+        Theme.UseDarkScrollbars(_logBox);
+        f.Shown += delegate { Theme.UseDarkScrollbars(_logBox); };
 
         // --- 按钮行 ---
         // 允许换行 + 行高自适应：窗口变窄时按钮折到第二行，不会横向溢出。

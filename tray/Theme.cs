@@ -42,7 +42,29 @@ static class Theme
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTheme(IntPtr hwnd, string subAppName, string subIdList);
+
     private const uint SPI_GETCLIENTAREAANIMATION = 0x1042;
+
+    /// <summary>
+    /// 把控件自带的滚动条切成深色。
+    /// 不做这一步，滚动条仍是系统浅色轨道 —— 一条 17px 宽的亮带压在深色卡片上，
+    /// 看起来就是日志旁边"竖着一个白条"。
+    /// </summary>
+    public static void UseDarkScrollbars(Control control)
+    {
+        if (control == null) return;
+        try
+        {
+            if (!control.IsHandleCreated) return;
+            SetWindowTheme(control.Handle, "DarkMode_Explorer", null);
+            // 滚动条在编辑控件里属于非客户区，不是 .NET 意义上的子控件，
+            // 所以这里对每个子控件也刷一遍，尽量覆盖到。
+            foreach (Control child in control.Controls) UseDarkScrollbars(child);
+        }
+        catch { }
+    }
 
     /// <summary>
     /// 把窗口标题栏与边框切成深色。
