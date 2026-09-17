@@ -19,10 +19,13 @@
 </p>
 
 <p align="center">
-  <a href="docs/content/docs/overview/quick-start.mdx">快速开始</a> · <a href="docs/content/docs/overview/features.mdx">功能介绍</a> · <a href="docs/content/docs/overview/render.mdx">Render 部署</a> · <a href="docs/content/docs/overview/docker.mdx">Docker 部署</a> · <a href="docs/content/docs/canvas/canvas-node-manual.mdx">画布节点操作手册</a> · <a href="docs/content/docs/canvas/canvas-shortcuts.mdx">画布快捷键</a> · <a href="SECURITY.md">漏洞提交</a> · <a href="docs/content/docs/progress/todo.mdx">待办事项</a> · <a href="canvas-agent/README.md">本地 Canvas Agent</a> · <a href="plugins/infinite-canvas">Codex app 插件</a>
+  <a href="#本地部署">本地部署</a> · <a href="#序列帧生成器可选">序列帧生成器</a> · <a href="SECURITY.md">漏洞提交</a>
 </p>
 
-无限画布是一款面向图片创作的开源工作台。它把画布编排、AI 图片生成、参考图编辑、对话助手、提示词库和素材沉淀放在同一个界面里，适合用来探索视觉方案并连续迭代图片结果。
+无限画布是一款面向图片创作的开源工作台。它把画布编排、AI 图片生成、参考图编辑、提示词库和素材沉淀放在同一个界面里，适合用来探索视觉方案并连续迭代图片结果。
+
+> [!NOTE]
+> **这是个人精简版**，基于上游 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas) v0.19.0 裁剪而来：去掉了本机用不到的功能（数据分析、版本检测、画布助手 / 本地 Agent、插件系统，以及运行时无关的目录），并做了几处部署与界面调整。部署方式见下方[《本地部署》](#本地部署)。
 
 > [!CAUTION]
 > 项目目前处于开发阶段，不保证历史数据兼容。各种本地存储格式都可能直接调整，欢迎关注后续更新。
@@ -86,44 +89,65 @@
 
 - 无限画布：多画布项目、节点拖拽缩放、连线、小地图、撤销重做、导入导出。
 - AI 创作：浏览器前台直连你配置的 OpenAI 兼容接口，支持文生图、图生图、参考图编辑、文本问答、音频和视频生成。
-- 画布助手：围绕选中节点和上游节点对话、生图，并把结果插回画布。
-- 本地 Agent：通过本机 Canvas Agent 连接 Codex / Claude Code，让 Agent 通过 MCP 操作当前画布；
-- Codex App 插件：提供 Codex app 插件，安装后会自动注册 MCP 并尝试拉起本地 Agent。
-- 插件系统：支持通过 URL 动态安装 / 启用 / 更新 / 卸载远程节点插件，并提供 TypeScript SDK 自行开发画布节点插件。
 - 自定义接口调用：可自定义生图 / 视频接口的调用方式，灵活适配各类中转站与自建服务。
 - 提示词库：内置 7 个开源提示词来源并支持自定义标准 JSON 来源，由浏览器前端直连并缓存到 IndexedDB。
+- 序列帧生成器：整合 ComfyUI 的序列帧流水线，见下方[《序列帧生成器》](#序列帧生成器可选)。
 
-完整功能说明见 [功能介绍](docs/content/docs/overview/features.mdx)。
+## 本地部署
 
-如果你在为担心没有合适的生图API来发愁，可以查看该免费生图项目：[chatgpt2api](https://github.com/basketikun/chatgpt2api)
+### 1. 准备
 
-## 快速开始
+| 需要 | 用途 |
+|---|---|
+| **Node.js 18+** | 跑 `serve.mjs`，必需 |
+| **ComfyUI** | 可选，只在要用序列帧生成器时需要 |
+| **bun** | 可选，只在需要重新构建前端时用（仓库不含构建产物） |
 
-AI API Key、Base URL、画布、素材和生成记录默认保存在浏览器本地。
-
-### 本地开发
-
-```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
-cd web
-bun install
-bun run dev
-```
-
-### Docker 运行
+### 2. 跑起来
 
 ```bash
-git clone git@github.com:basketikun/infinite-canvas.git
+git clone https://github.com/xiaojiangxj33/infinite-canvas.git
 cd infinite-canvas
-docker compose up -d
 ```
 
-运行后默认端口3000，可访问 `http://localhost:3000`。
+Windows 下直接双击 **`启动无限画布.bat`**：缺少构建产物时会先自动构建，再起服务并打开浏览器。
+也可以手动：
 
-首次打开后进入右上角配置，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`。
+```bash
+cd web && bun install && bun run build && cd ..
+node serve.mjs
+```
 
-如果默认的OpenAI接口调用方式与您的API不同，可自定义生图/视频脚本调用。
+打开 `http://localhost:3000`。首次使用进入右上角「配置」，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`；如果接口调用方式与默认不同，可自定义生图 / 视频脚本。
+
+> `serve.mjs` 是**单服务**：一个进程同时承担画布静态资源、序列帧生成器页面、ComfyUI 接口转发（含 WebSocket 进度）与跨源代理，不需要再单独启动转接服务。
+>
+> **API Key、画布、素材和生成记录都存在浏览器本地**，换机器要重新填。
+
+## 序列帧生成器（可选）
+
+画布里的「序列帧生成器」页面依赖一套 ComfyUI 环境，**相关代码不在本仓库**，来自这两个仓库：
+
+- **[h3-sprite-generator](https://github.com/xiaojiangxj33/h3-sprite-generator)** —— 序列帧生成器本体。单文件前端，约 300 KB、零依赖、零构建步骤。
+- **[ComfyUI-H3-ImageKey](https://github.com/xiaojiangxj33/ComfyUI-H3-ImageKey)** —— 配套的 ComfyUI 抠图节点，放进 `custom_nodes/` 即可用。
+
+装好之后，把这个网页目录告诉本服务（指向该自定义节点的 `web` 目录），三种方式任选一种：
+
+```bash
+node serve.mjs --h3ui-dir "D:\ComfyUI\custom_nodes\comfyui-minimax-h3-audio-T8\web"
+```
+
+```powershell
+$env:H3UI_DIR = "D:\ComfyUI\custom_nodes\comfyui-minimax-h3-audio-T8\web"
+```
+
+```
+# 或者在项目根目录建一个 .h3ui-dir 文件，里面只写一行该路径（已在 .gitignore 中，不会被提交）
+```
+
+**不配置也能正常使用画布**，只是序列帧生成器页面会显示一段提示。启动顺序：先起 ComfyUI，再起本服务。
+
+> 本精简版已移除 Docker 相关文件，如需容器部署请使用[上游仓库](https://github.com/basketikun/infinite-canvas)。
 
 ## 效果展示
 
