@@ -8,13 +8,9 @@ data/
 *.tsbuildinfo
 .DS_Store
 .idea
-web/dist
 
-**/dist
-web/public/plugins
-plugins/canvas/*/dist
-plugins/canvas/*/node_modules
-web/public/plugins
+# web/dist 有意不忽略：把构建产物一并提交，克隆后只要有 Node 就能直接跑，
+# 不必再装 bun 重新构建。这是相对上游的一处有意差异。
 
 # h3ui 所在目录由每台机器自己指定，不要提交
 .h3ui-dir
