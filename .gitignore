@@ -15,3 +15,6 @@ web/public/plugins
 plugins/canvas/*/dist
 plugins/canvas/*/node_modules
 web/public/plugins
+
+# h3ui 所在目录由每台机器自己指定，不要提交
+.h3ui-dir

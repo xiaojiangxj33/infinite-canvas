@@ -326,10 +326,19 @@ export default {
     navigation: {
         canvas: "My Canvases",
         image: "Image Studio",
-        video: "Video Studio",
+        h3ui: "Sprite Generator",
         prompts: "Prompt Library",
         assets: "My Assets",
         config: "Settings",
+    },
+    h3ui: {
+        checking: "Checking ComfyUI…",
+        offlineTitle: "ComfyUI is not running",
+        offlineDescription: "Needs ComfyUI running on port 8188 of this machine (this server forwards the endpoints the generator needs). The bundle takes about 200 seconds to cold start; you will be taken in automatically once it is ready.",
+        recheck: "Check again",
+        enterAnyway: "Enter anyway",
+        openExternal: "Open in new window",
+        ready: "Connected",
     },
     topNav: {
         openMenu: "Open navigation menu",

@@ -1,5 +1,5 @@
-import { Bot, Menu } from "lucide-react";
-import { Button, Tooltip } from "antd";
+import { Menu } from "lucide-react";
+import { Button } from "antd";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
@@ -8,42 +8,31 @@ import { AppConfigModal } from "@/components/layout/app-config-modal";
 import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 import { UserStatusActions } from "@/components/layout/user-status-actions";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
-import { useAgentStore } from "@/stores/use-agent-store";
+import { useState } from "react";
 
 export function AppTopNav() {
     const { t } = useTranslation();
     const { pathname } = useLocation();
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
-    const autoConnectRef = useRef(false);
-    const agentToken = useAgentStore((state) => state.token);
-    const agentEnabled = useAgentStore((state) => state.enabled);
-    const agentConnected = useAgentStore((state) => state.connected);
-    const connectAgent = useAgentStore((state) => state.connectAgent);
-    const togglePanel = useAgentStore((state) => state.togglePanel);
-    const panelOpen = useAgentStore((state) => state.panelOpen);
     const hideHeader = /^\/canvas\/[^/]+/.test(pathname);
     const slug = pathname.split("/").filter(Boolean)[0];
     const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
 
-    useEffect(() => {
-        if (autoConnectRef.current || agentEnabled || agentConnected || !agentToken.trim()) return;
-        autoConnectRef.current = true;
-        connectAgent({ silent: true });
-    }, [agentConnected, agentEnabled, agentToken, connectAgent]);
-
     return (
         <>
             {!hideHeader ? (
-                <header className="sticky top-0 z-20 h-14 shrink-0 border-b border-stone-200 bg-background/90 backdrop-blur-xl dark:border-stone-800">
+                <header className="sticky top-0 z-20 h-14 shrink-0 border-b border-stone-200 bg-background/90 backdrop-blur-xl dark:border-stone-800 dark:bg-[#0a0a0a]/90">
                     <div className="mx-auto flex h-full max-w-7xl items-stretch justify-between gap-5 px-6">
                         <div className="flex min-w-0 items-center">
                             <Link to="/" className="flex h-full shrink-0 items-center gap-2 text-sm font-semibold leading-none tracking-tight text-stone-950 transition hover:text-stone-600 dark:text-stone-100 dark:hover:text-stone-300">
                                 <span
                                     className="size-5 shrink-0 bg-current"
                                     style={{
-                                        mask: "url(/logo.svg) center / contain no-repeat",
-                                        WebkitMask: "url(/logo.svg) center / contain no-repeat",
+                                        // logo-mark.png 是 ∞ 的单色剪影（由 build-icon.js 从原图 alpha 阈值化生成）。
+                                        // 继续用 mask + bg-current，标记会跟随主题色（深色主题白 ∞ / 亮色主题黑 ∞）；
+                                        // 直接放彩色原图会在亮色主题下几乎看不见。
+                                        mask: "url(/logo-mark.png) center / contain no-repeat",
+                                        WebkitMask: "url(/logo-mark.png) center / contain no-repeat",
                                     }}
                                 />
                                 <span className="text-base font-medium">{t("meta.title")}</span>
@@ -83,9 +72,6 @@ export function AppTopNav() {
                         </div>
 
                         <div className="my-auto flex h-9 min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
-                            <Tooltip title={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}>
-                                <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" icon={<Bot className="size-4" />} onClick={togglePanel} aria-label={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")} />
-                            </Tooltip>
                             <UserStatusActions />
                         </div>
                     </div>

@@ -326,10 +326,19 @@ export default {
     navigation: {
         canvas: "我的画布",
         image: "生图工作台",
-        video: "视频创作台",
+        h3ui: "序列帧生成器",
         prompts: "提示词库",
         assets: "我的资产",
         config: "配置",
+    },
+    h3ui: {
+        checking: "正在检测 ComfyUI…",
+        offlineTitle: "ComfyUI 未启动",
+        offlineDescription: "需要 ComfyUI 在本机 8188 端口运行（画布服务会把序列帧生成器需要的接口转发过去）。整合包冷启动约 200 秒，就绪后会自动进入。",
+        recheck: "重新检测",
+        enterAnyway: "仍然进入",
+        openExternal: "在新窗口打开",
+        ready: "已连接",
     },
     topNav: {
         openMenu: "打开导航菜单",

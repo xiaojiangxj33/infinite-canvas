@@ -46,6 +46,14 @@ export default defineConfig({
             "@": resolve(webDir, "src"),
         },
     },
+    server: {
+        // 编辑器用临时文件原子写入时，Vite 会连那些临时文件一起 watch，
+        // 在 Windows 上偶发 EBUSY 直接把 dev server 打崩（已实测撞到过）。
+        // 忽略临时文件/临时目录即可根治。
+        watch: {
+            ignored: ["**/*.tmp", "**/*.tmpdir/**", "**/.*.tmpdir/**"],
+        },
+    },
     define: {
         __APP_VERSION__: JSON.stringify(localVersion),
         __APP_RELEASES__: JSON.stringify(parseChangelog(localChangelog)),
