@@ -17,10 +17,10 @@ if not exist "%CSC%" (
 )
 
 rem 源文件含中文，必须带 UTF-8 BOM，否则 csc 会按系统 ANSI 码页解析成乱码
-powershell -NoProfile -Command "$p='tray\Program.cs'; $b=[IO.File]::ReadAllBytes($p); $hasBom=($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF); if(-not $hasBom){ $t=[IO.File]::ReadAllText($p,(New-Object Text.UTF8Encoding($false))); [IO.File]::WriteAllText($p,$t,(New-Object Text.UTF8Encoding($true))); Write-Host '[修正] 已给 Program.cs 补上 UTF-8 BOM' }"
+powershell -NoProfile -Command "foreach($p in @('tray\Program.cs','tray\Theme.cs')){ $b=[IO.File]::ReadAllBytes($p); $hasBom=($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF); if(-not $hasBom){ $t=[IO.File]::ReadAllText($p,(New-Object Text.UTF8Encoding($false))); [IO.File]::WriteAllText($p,$t,(New-Object Text.UTF8Encoding($true))); Write-Host ('[修正] 已补 UTF-8 BOM: ' + $p) } }"
 
 echo 正在编译...
-"%CSC%" /nologo /target:winexe /optimize+ /utf8output /out:"无限画布托盘.exe" /win32icon:logo.ico /r:System.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll "tray\Program.cs"
+"%CSC%" /nologo /target:winexe /optimize+ /utf8output /out:"无限画布托盘.exe" /win32icon:logo.ico /r:System.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll "tray\Program.cs" "tray\Theme.cs"
 if errorlevel 1 (
     echo.
     echo [错误] 编译失败，请看上面的报错。

@@ -50,9 +50,11 @@ static class TrayProgram
     // 控制台窗口相关
     static Form _win;
     static TextBox _logBox;
-    static Label _statusLabel;
-    static Label _detailLabel;
-    static CheckBox _autoBox;
+    static SpecTile _tileStatus;
+    static SpecTile _tileInterval;
+    static SpecTile _tileRestarts;
+    static SpecTile _tileH3ui;
+    static PillButton _autoBox;
     static bool _reallyExit;              // true 时才真的关闭窗口；平时点叉只是缩回托盘
     static bool _hideHintShown;
 
@@ -131,6 +133,32 @@ static class TrayProgram
     }
 
     // ------------------------------------------------------------ 控制台窗口
+    //
+    //  按 Launch Keynote（发布会主题）排版：
+    //    · 纯黑 #000000 舞台，全窗口只有一处抬升面（日志卡片 #1D1D1F rounded-2xl）
+    //    · 一屏一句话：hero 只写产品名 + 一句说明
+    //    · 规格用大数字网格呈现，关键数字用唯一强调色 #2997FF
+    //    · 全窗口唯一 CTA 是「打开无限画布」（电蓝胶囊），其余按钮是 #1D1D1F + hairline 描边
+    //    · 不用渐变、不用第二支强调色、不做嵌套卡片、不用玻璃态
+
+    static SpecTile NewTile(string label, string value, bool accent, int width)
+    {
+        var t = new SpecTile();
+        t.Width = width;
+        t.Margin = new Padding(0, 0, 40, 0);
+        t.Set(label, value, accent);
+        return t;
+    }
+
+    static void ApplyRounded(Control c, int radius)
+    {
+        try
+        {
+            using (var path = Theme.Rounded(new Rectangle(0, 0, c.Width, c.Height), radius))
+                c.Region = new Region(path);
+        }
+        catch { }
+    }
 
     static void BuildWindow()
     {
@@ -138,10 +166,11 @@ static class TrayProgram
 
         var f = new Form();
         f.Text = AppName + " · 控制台";
-        f.Size = new Size(820, 520);
-        f.MinimumSize = new Size(560, 340);
+        f.Size = new Size(1120, 720);
+        f.MinimumSize = new Size(660, 420);
         f.StartPosition = FormStartPosition.CenterScreen;
-        try { f.Font = new Font("Microsoft YaHei UI", 9F); } catch { }
+        f.BackColor = Theme.Stage;                 // 纯黑舞台
+        f.ForeColor = Theme.Ink;
         try { f.Icon = LoadIcon(); } catch { }
 
         // 点叉不退出，只缩回托盘；要真退出得走托盘菜单里的"退出"
@@ -161,72 +190,104 @@ static class TrayProgram
 
         var layout = new TableLayoutPanel();
         layout.Dock = DockStyle.Fill;
+        layout.BackColor = Theme.Stage;
         layout.ColumnCount = 1;
-        layout.RowCount = 3;
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
+        layout.RowCount = 4;
+        layout.Padding = new Padding(44, 34, 44, 26);
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 104F));   // hero
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));    // 规格格
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));    // 日志卡片
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));         // 按钮行（可换行，高度自适应）
 
-        // --- 顶部：状态 ---
-        var top = new Panel();
-        top.Dock = DockStyle.Fill;
-        top.Padding = new Padding(12, 8, 12, 4);
+        // --- Hero：一屏一句话 ---
+        var hero = new Panel();
+        hero.Dock = DockStyle.Fill;
+        hero.BackColor = Theme.Stage;
 
-        _statusLabel = new Label();
-        _statusLabel.AutoSize = true;
-        _statusLabel.Font = new Font(f.Font.FontFamily, 12F, FontStyle.Bold);
-        _statusLabel.Location = new Point(12, 8);
-        _statusLabel.Text = "● 启动中";
+        // hero 用自绘文本块：Label 在纯黑窗口里出现过整块涂白的渲染问题
+        var title = new TextBlock(Theme.Ui(26f, FontStyle.Bold), Theme.Ink);   // 巨字 hero
+        title.Location = new Point(0, 0);
+        title.Set("无限画布");
 
-        _detailLabel = new Label();
-        _detailLabel.AutoSize = true;
-        _detailLabel.ForeColor = Color.DimGray;
-        _detailLabel.Location = new Point(12, 34);
-        _detailLabel.Text = "服务地址 http://localhost:3000";
+        var sub = new TextBlock(Theme.Ui(10.5f, FontStyle.Regular), Theme.Muted);
+        sub.Location = new Point(3, 56);
+        sub.Set("本地单服务 —— 画布 · 序列帧生成器 · 接口转发 · 跨源代理");
 
-        top.Controls.Add(_statusLabel);
-        top.Controls.Add(_detailLabel);
+        hero.Controls.Add(title);
+        hero.Controls.Add(sub);
 
-        // --- 中间：日志 ---
+        // --- 规格格：大数字，冷静克制可信 ---
+        var specs = new FlowLayoutPanel();
+        specs.Dock = DockStyle.Fill;
+        specs.BackColor = Theme.Stage;
+        specs.FlowDirection = FlowDirection.LeftToRight;
+        specs.WrapContents = false;
+        specs.Padding = new Padding(0, 10, 0, 0);
+
+        _tileStatus = NewTile("服务状态", "启动中", true, 168);
+        _tileInterval = NewTile("自检间隔", "4 秒", true, 118);
+        _tileRestarts = NewTile("已自动重启", "0 次", true, 142);
+        _tileH3ui = NewTile("序列帧生成器", "检测中", false, 168);
+        specs.Controls.Add(_tileStatus);
+        specs.Controls.Add(_tileInterval);
+        specs.Controls.Add(_tileRestarts);
+        specs.Controls.Add(_tileH3ui);
+
+        // --- 日志：全窗口唯一的一张抬升面（#1D1D1F rounded-2xl）---
+        var card = new Panel();
+        card.Dock = DockStyle.Fill;
+        card.BackColor = Theme.Elevated;
+        card.Padding = new Padding(20, 16, 10, 12);
+        card.Resize += delegate { ApplyRounded(card, 16); };
+
         _logBox = new TextBox();
         _logBox.Dock = DockStyle.Fill;
         _logBox.Multiline = true;
         _logBox.ReadOnly = true;
-        _logBox.ScrollBars = ScrollBars.Both;
-        _logBox.WordWrap = false;
-        _logBox.BackColor = Color.FromArgb(30, 30, 30);
-        _logBox.ForeColor = Color.Gainsboro;
-        try { _logBox.Font = new Font("Consolas", 9F); } catch { }
-        _logBox.Margin = new Padding(12, 0, 12, 0);
+        _logBox.ScrollBars = ScrollBars.Vertical;
+        _logBox.WordWrap = true;
+        _logBox.BorderStyle = BorderStyle.None;          // 不要输入框描边，融入卡片
+        _logBox.BackColor = Theme.Elevated;
+        _logBox.ForeColor = Theme.Ink;
+        _logBox.Font = Theme.Mono(9.5f, FontStyle.Regular);
+        card.Controls.Add(_logBox);
 
-        // --- 底部：按钮 ---
+        // --- 按钮行 ---
+        // 允许换行 + 行高自适应：窗口变窄时按钮折到第二行，不会横向溢出。
         var bottom = new FlowLayoutPanel();
-        bottom.Dock = DockStyle.Fill;
-        bottom.Padding = new Padding(12, 8, 12, 8);
+        bottom.Dock = DockStyle.Top;
+        bottom.AutoSize = true;
+        bottom.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        bottom.BackColor = Theme.Stage;
         bottom.FlowDirection = FlowDirection.LeftToRight;
-        bottom.WrapContents = false;
+        bottom.WrapContents = true;
+        bottom.Padding = new Padding(0, 20, 0, 0);
 
-        bottom.Controls.Add(MakeButton("打开无限画布", 110, delegate { Open(Url); }));
-        bottom.Controls.Add(MakeButton("序列帧生成器", 110, delegate { Open(Url + "/h3ui"); }));
-        bottom.Controls.Add(MakeButton("重启服务", 90, delegate { Restart("手动重启"); }));
-        bottom.Controls.Add(MakeButton("清空日志", 90, delegate { if (_logBox != null) _logBox.Text = ""; }));
-        bottom.Controls.Add(MakeButton("打开日志文件", 110, delegate { OpenLog(); }));
+        bottom.Controls.Add(NewPill("打开无限画布", true, false, 158, delegate { Open(Url); }));
+        bottom.Controls.Add(NewPill("序列帧生成器", false, false, 116, delegate { Open(Url + "/h3ui"); }));
+        bottom.Controls.Add(NewPill("重启服务", false, false, 92, delegate { Restart("手动重启"); }));
+        bottom.Controls.Add(NewPill("清空日志", false, false, 84, delegate { if (_logBox != null) _logBox.Text = ""; }));
+        bottom.Controls.Add(NewPill("打开日志文件", false, false, 106, delegate { OpenLog(); }));
 
-        _autoBox = new CheckBox();
-        _autoBox.Text = "开机自动启动";
-        _autoBox.AutoSize = true;
-        _autoBox.Margin = new Padding(12, 8, 0, 0);
+        // 开机自启做成同款胶囊开关：只在真实点击时才写注册表
+        _autoBox = new PillButton("开机自动启动", false, true);
+        _autoBox.Width = 118;
+        _autoBox.Margin = new Padding(0, 4, 10, 0);
         _autoBox.Checked = IsAutoStart();
-        // 用 Click 而不是 CheckedChanged：CheckedChanged 在程序化改状态时也会触发，
-        // 结果窗口一显示就"自己"把开机自启写进了注册表。Click 只在真实鼠标点击时才触发。
-        _autoBox.Click += delegate { SetAutoStart(_autoBox.Checked); };
+        _autoBox.Click += delegate
+        {
+            bool on = !IsAutoStart();
+            SetAutoStart(on);
+            _autoBox.Checked = on;
+        };
         bottom.Controls.Add(_autoBox);
 
-        bottom.Controls.Add(MakeButton("缩到托盘", 90, delegate { f.Hide(); }));
+        bottom.Controls.Add(NewPill("缩到托盘", false, true, 92, delegate { f.Hide(); }));
 
-        layout.Controls.Add(top, 0, 0);
-        layout.Controls.Add(_logBox, 0, 1);
-        layout.Controls.Add(bottom, 0, 2);
+        layout.Controls.Add(hero, 0, 0);
+        layout.Controls.Add(specs, 0, 1);
+        layout.Controls.Add(card, 0, 2);
+        layout.Controls.Add(bottom, 0, 3);
         f.Controls.Add(layout);
 
         _win = f;
@@ -247,13 +308,11 @@ static class TrayProgram
         catch { }
     }
 
-    static Button MakeButton(string text, int width, EventHandler onClick)
+    static PillButton NewPill(string text, bool primary, bool compact, int width, EventHandler onClick)
     {
-        var b = new Button();
-        b.Text = text;
+        var b = new PillButton(text, primary, compact);
         b.Width = width;
-        b.Height = 30;
-        b.Margin = new Padding(0, 2, 8, 0);
+        b.Margin = new Padding(0, primary ? 0 : 4, 8, 0);
         b.Click += onClick;
         return b;
     }
@@ -304,21 +363,18 @@ static class TrayProgram
                 if (item != null) item.Text = "状态：" + text;
             }
         }
-        // 同步到控制台窗口顶部
-        if (_statusLabel != null)
+        // 同步到控制台窗口的规格格。关键数字用唯一强调色 #2997FF；
+        // 状态同时用文字表达，不靠颜色单独传递（无障碍要求）。
+        if (_tileStatus != null)
         {
             try
             {
-                _statusLabel.BeginInvoke((MethodInvoker)delegate
+                _tileStatus.BeginInvoke((MethodInvoker)delegate
                 {
-                    _statusLabel.Text = "● " + text;
-                    _statusLabel.ForeColor = healthy ? Color.FromArgb(22, 130, 60)
-                                                     : Color.FromArgb(200, 90, 20);
-                    if (_detailLabel != null)
-                    {
-                        _detailLabel.Text = "服务地址 http://localhost:3000    自检间隔 4 秒    已自动重启 "
-                            + _restarts + " 次    h3ui 目录 " + (H3uiDirConfigured() ? "已配置" : "未配置（画布仍可用）");
-                    }
+                    _tileStatus.Set("服务状态", text, healthy);
+                    if (_tileInterval != null) _tileInterval.Set("自检间隔", (CheckIntervalMs / 1000) + " 秒", true);
+                    if (_tileRestarts != null) _tileRestarts.Set("已自动重启", _restarts + " 次", true);
+                    if (_tileH3ui != null) _tileH3ui.Set("序列帧生成器", H3uiDirConfigured() ? "已配置" : "未配置", false);
                 });
             }
             catch { }
