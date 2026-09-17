@@ -47,6 +47,15 @@ static class TrayProgram
     static string _state = "启动中";
     static Mutex _single;
 
+    // 控制台窗口相关
+    static Form _win;
+    static TextBox _logBox;
+    static Label _statusLabel;
+    static Label _detailLabel;
+    static CheckBox _autoBox;
+    static bool _reallyExit;              // true 时才真的关闭窗口；平时点叉只是缩回托盘
+    static bool _hideHintShown;
+
     [STAThread]
     static void Main()
     {
@@ -71,11 +80,15 @@ static class TrayProgram
         // 先把可能残留的旧实例接管掉，保证 3000 端口是自己的
         ReclaimPort();
 
+        BuildWindow();          // 先建好窗口，后面日志才能实时进去
         BuildTray();
         StartService();
         StartTimer();
 
-        // 托盘程序本身不显示窗口，靠 Application.Run 跑消息循环
+        // 像原来的 CMD 窗口一样，启动时把控制台显示出来；
+        // 但它点叉只是缩回托盘，服务照跑。
+        ShowWindow();
+
         Application.Run();
     }
 
@@ -89,6 +102,8 @@ static class TrayProgram
         _tray.Visible = true;
 
         var menu = new ContextMenuStrip();
+        menu.Items.Add(MenuItem("打开控制台", delegate { ShowWindow(); }));
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(MenuItem("打开无限画布", delegate { Open(Url); }));
         menu.Items.Add(MenuItem("打开序列帧生成器", delegate { Open(Url + "/h3ui"); }));
         menu.Items.Add(new ToolStripSeparator());
@@ -97,7 +112,7 @@ static class TrayProgram
         statusItem.Name = "status";
         menu.Items.Add(statusItem);
         menu.Items.Add(MenuItem("立即重启服务", delegate { Restart("手动重启"); }));
-        menu.Items.Add(MenuItem("查看日志", delegate { OpenLog(); }));
+        menu.Items.Add(MenuItem("打开日志文件", delegate { OpenLog(); }));
         menu.Items.Add(MenuItem("打开项目目录", delegate { Open(_dir); }));
         menu.Items.Add(new ToolStripSeparator());
         var auto = new ToolStripMenuItem("开机自动启动");
@@ -112,7 +127,149 @@ static class TrayProgram
         menu.Items.Add(MenuItem("退出（停止服务）", delegate { Shutdown(); }));
 
         _tray.ContextMenuStrip = menu;
-        _tray.DoubleClick += delegate { Open(Url); };
+        _tray.DoubleClick += delegate { ShowWindow(); };
+    }
+
+    // ------------------------------------------------------------ 控制台窗口
+
+    static void BuildWindow()
+    {
+        if (_win != null) return;
+
+        var f = new Form();
+        f.Text = AppName + " · 控制台";
+        f.Size = new Size(820, 520);
+        f.MinimumSize = new Size(560, 340);
+        f.StartPosition = FormStartPosition.CenterScreen;
+        try { f.Font = new Font("Microsoft YaHei UI", 9F); } catch { }
+        try { f.Icon = LoadIcon(); } catch { }
+
+        // 点叉不退出，只缩回托盘；要真退出得走托盘菜单里的"退出"
+        f.FormClosing += delegate(object s, FormClosingEventArgs e)
+        {
+            if (_reallyExit) return;
+            e.Cancel = true;
+            f.Hide();
+            if (!_hideHintShown)
+            {
+                _hideHintShown = true;
+                _tray.ShowBalloonTip(3500, AppName,
+                    "窗口已缩到右下角托盘，服务照常在跑。\n要彻底退出请右键托盘图标 →「退出（停止服务）」。",
+                    ToolTipIcon.Info);
+            }
+        };
+
+        var layout = new TableLayoutPanel();
+        layout.Dock = DockStyle.Fill;
+        layout.ColumnCount = 1;
+        layout.RowCount = 3;
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
+
+        // --- 顶部：状态 ---
+        var top = new Panel();
+        top.Dock = DockStyle.Fill;
+        top.Padding = new Padding(12, 8, 12, 4);
+
+        _statusLabel = new Label();
+        _statusLabel.AutoSize = true;
+        _statusLabel.Font = new Font(f.Font.FontFamily, 12F, FontStyle.Bold);
+        _statusLabel.Location = new Point(12, 8);
+        _statusLabel.Text = "● 启动中";
+
+        _detailLabel = new Label();
+        _detailLabel.AutoSize = true;
+        _detailLabel.ForeColor = Color.DimGray;
+        _detailLabel.Location = new Point(12, 34);
+        _detailLabel.Text = "服务地址 http://localhost:3000";
+
+        top.Controls.Add(_statusLabel);
+        top.Controls.Add(_detailLabel);
+
+        // --- 中间：日志 ---
+        _logBox = new TextBox();
+        _logBox.Dock = DockStyle.Fill;
+        _logBox.Multiline = true;
+        _logBox.ReadOnly = true;
+        _logBox.ScrollBars = ScrollBars.Both;
+        _logBox.WordWrap = false;
+        _logBox.BackColor = Color.FromArgb(30, 30, 30);
+        _logBox.ForeColor = Color.Gainsboro;
+        try { _logBox.Font = new Font("Consolas", 9F); } catch { }
+        _logBox.Margin = new Padding(12, 0, 12, 0);
+
+        // --- 底部：按钮 ---
+        var bottom = new FlowLayoutPanel();
+        bottom.Dock = DockStyle.Fill;
+        bottom.Padding = new Padding(12, 8, 12, 8);
+        bottom.FlowDirection = FlowDirection.LeftToRight;
+        bottom.WrapContents = false;
+
+        bottom.Controls.Add(MakeButton("打开无限画布", 110, delegate { Open(Url); }));
+        bottom.Controls.Add(MakeButton("序列帧生成器", 110, delegate { Open(Url + "/h3ui"); }));
+        bottom.Controls.Add(MakeButton("重启服务", 90, delegate { Restart("手动重启"); }));
+        bottom.Controls.Add(MakeButton("清空日志", 90, delegate { if (_logBox != null) _logBox.Text = ""; }));
+        bottom.Controls.Add(MakeButton("打开日志文件", 110, delegate { OpenLog(); }));
+
+        _autoBox = new CheckBox();
+        _autoBox.Text = "开机自动启动";
+        _autoBox.AutoSize = true;
+        _autoBox.Margin = new Padding(12, 8, 0, 0);
+        _autoBox.Checked = IsAutoStart();
+        // 用 Click 而不是 CheckedChanged：CheckedChanged 在程序化改状态时也会触发，
+        // 结果窗口一显示就"自己"把开机自启写进了注册表。Click 只在真实鼠标点击时才触发。
+        _autoBox.Click += delegate { SetAutoStart(_autoBox.Checked); };
+        bottom.Controls.Add(_autoBox);
+
+        bottom.Controls.Add(MakeButton("缩到托盘", 90, delegate { f.Hide(); }));
+
+        layout.Controls.Add(top, 0, 0);
+        layout.Controls.Add(_logBox, 0, 1);
+        layout.Controls.Add(bottom, 0, 2);
+        f.Controls.Add(layout);
+
+        _win = f;
+        // 提前创建窗口句柄：否则在窗口第一次显示之前调用 BeginInvoke 更新状态会抛异常
+        // （启动那一次状态更新就丢了）。
+        try { IntPtr h = f.Handle; } catch { }
+
+        // 把已经写进文件的日志补进窗口，避免打开是空的
+        try
+        {
+            if (File.Exists(_logPath))
+            {
+                string[] lines = File.ReadAllLines(_logPath);
+                int from = Math.Max(0, lines.Length - 300);
+                for (int i = from; i < lines.Length; i++) AppendToWindow(lines[i]);
+            }
+        }
+        catch { }
+    }
+
+    static Button MakeButton(string text, int width, EventHandler onClick)
+    {
+        var b = new Button();
+        b.Text = text;
+        b.Width = width;
+        b.Height = 30;
+        b.Margin = new Padding(0, 2, 8, 0);
+        b.Click += onClick;
+        return b;
+    }
+
+    static void ShowWindow()
+    {
+        try
+        {
+            BuildWindow();
+            if (!_win.Visible) _win.Show();
+            if (_win.WindowState == FormWindowState.Minimized) _win.WindowState = FormWindowState.Normal;
+            _win.ShowInTaskbar = true;
+            _win.Activate();
+            _win.BringToFront();
+        }
+        catch (Exception ex) { Log("打开控制台失败：" + ex.Message); }
     }
 
     static ToolStripMenuItem MenuItem(string text, EventHandler onClick)
@@ -147,7 +304,33 @@ static class TrayProgram
                 if (item != null) item.Text = "状态：" + text;
             }
         }
+        // 同步到控制台窗口顶部
+        if (_statusLabel != null)
+        {
+            try
+            {
+                _statusLabel.BeginInvoke((MethodInvoker)delegate
+                {
+                    _statusLabel.Text = "● " + text;
+                    _statusLabel.ForeColor = healthy ? Color.FromArgb(22, 130, 60)
+                                                     : Color.FromArgb(200, 90, 20);
+                    if (_detailLabel != null)
+                    {
+                        _detailLabel.Text = "服务地址 http://localhost:3000    自检间隔 4 秒    已自动重启 "
+                            + _restarts + " 次    h3ui 目录 " + (H3uiDirConfigured() ? "已配置" : "未配置（画布仍可用）");
+                    }
+                });
+            }
+            catch { }
+        }
         Log("状态 -> " + text);
+    }
+
+    /// <summary>只用于界面上显示 h3ui 是否配置好（读 .h3ui-dir 是否存在）。</summary>
+    static bool H3uiDirConfigured()
+    {
+        try { return File.Exists(Path.Combine(_dir, ".h3ui-dir")); }
+        catch { return false; }
     }
 
     // ------------------------------------------------------------ 服务进程
@@ -414,10 +597,31 @@ static class TrayProgram
 
     static void Log(string message)
     {
+        string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + message;
+        try { File.AppendAllText(_logPath, line + Environment.NewLine, Encoding.UTF8); }
+        catch { }
+        AppendToWindow(line);
+    }
+
+    /// <summary>
+    /// 把一行日志追加到控制台窗口。
+    /// 日志可能来自后台线程（子进程输出事件），所以要回到 UI 线程再改控件。
+    /// </summary>
+    static void AppendToWindow(string line)
+    {
+        if (_logBox == null) return;
         try
         {
-            string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + message + Environment.NewLine;
-            File.AppendAllText(_logPath, line, Encoding.UTF8);
+            if (_logBox.InvokeRequired)
+            {
+                _logBox.BeginInvoke((MethodInvoker)delegate { AppendToWindow(line); });
+                return;
+            }
+            // 简单限长：太长就丢掉前面的，避免常驻几天后窗口越来越大
+            if (_logBox.TextLength > 150000) _logBox.Text = "(…较早的日志已省略，完整内容看 tray.log)\r\n";
+            _logBox.AppendText(line + Environment.NewLine);
+            _logBox.SelectionStart = _logBox.TextLength;
+            _logBox.ScrollToCaret();
         }
         catch { }
     }
@@ -457,8 +661,10 @@ static class TrayProgram
     static void Shutdown()
     {
         Log("退出托盘，停止服务");
+        _reallyExit = true;                  // 放行窗口关闭，否则 FormClosing 会拦下它
         try { if (_timer != null) _timer.Stop(); } catch { }
         StopService();
+        try { if (_win != null) { _win.Close(); _win.Dispose(); _win = null; } } catch { }
         if (_tray != null)
         {
             _tray.Visible = false;
